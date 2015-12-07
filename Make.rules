@@ -1,0 +1,46 @@
+SRCS = $(OBJS:.o=.cc)
+
+CLEAN_SUBDIRS = $(SUBDIRS)
+
+ifneq ($(TARGETS),)
+all: $(SUBDIRS) $(TARGETS)
+	@echo "Finish build TARGET $(TARGETS)"
+
+$(TARGETS): $(OBJS)
+	$(CXX) $(LDFLAGS) -o $@ $(OBJS) $(LIBS) $(EXTERN_LIBS)
+endif
+
+ifneq ($(LIBTARGET),)
+all: $(SUBDIRS) $(LIBTARGET)
+	@echo "Finish build LIBTARGET $(LIBTARGET)"
+
+$(LIBTARGET): $(OBJS)
+	rm -f $@
+	$(AR) rc $@ $^
+	$(RANLIB) $@
+endif
+
+
+$(SUBDIRS):
+	make -C $@
+     
+.o: .cc
+	$(CXX) $(CXXFLAGS) -o $@ $<
+
+clean:
+	-rm -f $(PHONY_TARGETS) $(TARGETS) *~ *.o *.a
+	@for dir in $(SUBDIRS); do \
+		$(MAKE) -C $$dir clean; \
+	done
+
+depend:
+	-$(CXX) -MM $(CXXFLAGS) *.cc 1>.depend
+	@for dir in $(SUBDIRS); do \
+		$(MAKE) -C $$dir depend; \
+	done
+
+ifneq ($(wildcard .depend),)
+include .depend
+endif
+
+.PHONY: all $(SUBDIRS) clean depend

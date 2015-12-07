@@ -1,0 +1,8 @@
+CXX = g++
+AR = ar
+RANLIB = ranlib
+
+OPT_FLAGS = -g -O3 -msse2 -fPIC 
+CFLAGS = $(OPT_FLAGS) -m64
+CXXFLAGS = $(CFLAGS)
+LDFLAGS = 
