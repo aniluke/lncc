@@ -5,7 +5,7 @@ CFG = $(shell pwd)/../../../
 
 SUBDIRS = 
 
-CXXFLAGS = -Iinclude -I..
+CXXFLAGS += -Iinclude -I..
 
 OBJS = common_utils.o pthread_lock.o lock_factory.o tinyxml2.o
 

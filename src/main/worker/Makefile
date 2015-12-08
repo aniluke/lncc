@@ -5,7 +5,7 @@ CFG = $(shell pwd)/../../../
 
 SUBDIRS = 
 
-CXXFLAGS = -Iinclude -I../ -I../utils/include
+CXXFLAGS += -Iinclude -I../ -I../utils/include
 
 OBJS = worker.o local_task.o
 
