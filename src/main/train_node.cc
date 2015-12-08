@@ -10,28 +10,24 @@ using namespace std;
 using namespace lncc;
 
 
-lncc::TrainNode::TrainNode(MsgQueue<BaseTask*>* task_queue,
+lncc::TrainNode::TrainNode(const LnContext* ln_ctx,
                            int* sample_index,
                            int sample_num,
                            const DataSet* data_set,
                            const double* ngrads,
-                           double learning_rate,
                            double reg_L1,
-                           double reg_L2,
-                           double lambda):
+                           double reg_L2):
     PredNode(0.0),
-    task_queue_(task_queue),
+    ln_ctx_(ln_ctx),
     sample_index_(sample_index),
     sample_num_(sample_num),
     data_set_(data_set),
     ngrads_(ngrads),
     sum_ngrads_(0.0),
     sum_weights_(0.0),
-    learning_rate_(learning_rate),
     max_split_gain_(0.0),
     reg_L1_(reg_L1),
-    reg_L2_(reg_L2),
-    lambda_(lambda){
+    reg_L2_(reg_L2) {
     ComputeResponse();
 
     FindSplit();    
@@ -48,10 +44,11 @@ void lncc::TrainNode::ComputeResponse() {
         sum_weights_ += weight;
     }
 
-    response_= learning_rate_ * sum_ngrads_ / (sum_weights_ + lambda_);
+    response_= ln_ctx_->learning_rate * sum_ngrads_ / (sum_weights_ + ln_ctx_->lambda);
 }
 
 double lncc::TrainNode::FindSplitByCol(const FeatureCol* fcol, double* out_split_fval) {
+    double lambda = ln_ctx_->lambda;
     double max_gain = 0.0;
     int value_num = fcol->value_set_.size();
     // TODO: cache the allocated memory
@@ -71,7 +68,7 @@ double lncc::TrainNode::FindSplitByCol(const FeatureCol* fcol, double* out_split
     double left_weights = 0.0;
     double right_ngrads = 0.0;
     double right_weights = 0.0;
-    double root_gain = sum_ngrads_ * sum_ngrads_ / (sum_weights_+lambda_);
+    double root_gain = sum_ngrads_ * sum_ngrads_ / (sum_weights_+lambda);
     double best_gain = 0.0; // default value 0 limits that the best gain must be larger than 0.0
     int best_split_vid = -1;
     int best_split_prev_vid = -1;
@@ -90,15 +87,15 @@ double lncc::TrainNode::FindSplitByCol(const FeatureCol* fcol, double* out_split
         left_weights += weights_by_val[prev_vid];
         right_ngrads = sum_ngrads_ - left_ngrads;
         right_weights = sum_weights_ - left_weights;
-        double left_response = left_ngrads / (left_weights+lambda_);
-        double right_response = right_ngrads / (right_weights+lambda_);
+        double left_response = left_ngrads / (left_weights+lambda);
+        double right_response = right_ngrads / (right_weights+lambda);
         double left_r2 = left_response * left_response;
         double right_r2 = right_response * right_response;
         double reg = reg_L1_ * (fabs(left_response) + fabs(right_response)) + reg_L2_ * (left_r2 + right_r2);
-        double gain = left_r2 * (left_weights+lambda_) + right_r2 * (right_weights+lambda_) - root_gain - reg;
+        double gain = left_r2 * (left_weights+lambda) + right_r2 * (right_weights+lambda) - root_gain - reg;
 
         //double reg = reg_L1_ * (fabs(left_response) + fabs(right_response)) + reg_L2_ * (left_response* left_response + right_response * right_response);
-        //double gain = left_ngrads * left_ngrads / (left_weights+lambda_) + right_ngrads * right_ngrads / (right_weights+lambda_) - root_gain - reg;
+        //double gain = left_ngrads * left_ngrads / (left_weights+lambda) + right_ngrads * right_ngrads / (right_weights+lambda) - root_gain - reg;
         
 #if 0
         if (fcol->fea_name_ == "MMAX") {
@@ -143,69 +140,6 @@ namespace lncc {
         double gain_;
     };
 
-    struct TaskGroupTracker {
-        int task_num;
-        BaseLock* lock;
-        sem_t cond;
-        TaskGroupTracker(int _task_num):task_num(_task_num) {
-            lock = LockFactory::create_lock(0);
-            sem_init(&cond, 0, 0);
-        }
-        ~TaskGroupTracker() {
-            delete lock;
-            sem_destroy(&cond);
-        }
-
-        void Wait() {
-            sem_wait(&cond);
-        }
-
-        void Notify() {
-            sem_post(&cond);
-        }
-
-        void Lock() {
-            lock->lock();
-        }
-
-        void Unlock() {
-            lock->unlock();
-        }
-    };
-
-    class BatchColumnSplitTask : public BaseTask {
-    public:
-        BatchColumnSplitTask(TaskGroupTracker* tracker, TrainNode* train_node, const FeatureCol* fcol):tracker_(tracker), train_node_(train_node), fcol_(fcol), split_fval_(0.0), gain_(0.0) {
-        };
-        virtual ~BatchColumnSplitTask() {}
-        
-    public:
-        virtual void DoTask() {
-            gain_ = train_node_->FindSplitByCol( fcol_, &split_fval_);
-        }
-        virtual int Wait() {
-            return 0;
-        }
-        virtual int Notify() {
-            tracker_->Lock();
-            tracker_->task_num --;
-            tracker_->Unlock();
-            if (tracker_->task_num == 0) {
-                tracker_->Notify();
-            }
-
-            return 0;
-        }
-    
-    private:
-        TaskGroupTracker* tracker_;
-        TrainNode* train_node_;
-        const FeatureCol* fcol_;
-    public:
-        double split_fval_;
-        double gain_;
-    };
-
 }
 
 
@@ -223,7 +157,7 @@ bool lncc::TrainNode::FindSplit() {
     for (int fid = 0; fid < data_set_->fmat_.size(); fid ++) {
         const FeatureCol* fcol = &data_set_->fmat_[fid];
         ColumnSplitTask* task = new ColumnSplitTask(this, fcol);
-        task_queue_->push(task);
+        ln_ctx_->task_queue->push(task);
         col_split_tasks.push_back(task);
     }
 
@@ -309,9 +243,9 @@ bool lncc::TrainNode::Split() {
         split_fid_ = -1;
         return false;
     }
-    left_ = new TrainNode(task_queue_, sample_index_, right_begin, data_set_, ngrads_, learning_rate_, reg_L1_, reg_L2_, lambda_);
+    left_ = new TrainNode(ln_ctx_, sample_index_, right_begin, data_set_, ngrads_, reg_L1_, reg_L2_);
 
-    right_ = new TrainNode(task_queue_, &sample_index_[right_begin], sample_num_ - right_begin, data_set_, ngrads_, learning_rate_, reg_L1_, reg_L2_, lambda_);
+    right_ = new TrainNode(ln_ctx_, &sample_index_[right_begin], sample_num_ - right_begin, data_set_, ngrads_, reg_L1_, reg_L2_);
     
     return true;
 }

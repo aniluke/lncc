@@ -17,6 +17,9 @@ namespace lncc {
         virtual int LoadModel();
 
     private:
+        int PredictIterations(int max_iters);
+        
+    private:
         const LnContext* ln_ctx_;
         DataSet data_set_;
         std::vector<BaseFunction*> base_funcs_;

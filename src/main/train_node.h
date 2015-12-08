@@ -10,15 +10,13 @@
 namespace lncc {    
     class TrainNode : public PredNode {
     public:
-        TrainNode(MsgQueue<BaseTask*>* task_queue,
+        TrainNode(const LnContext* ln_ctx,
                   int* sample_index,
                   int sample_num,
                   const DataSet* data_set,
                   const double* ngrads,
-                  double learning_rate,
                   double reg_L1,
-                  double reg_L2,
-                  double lambda);
+                  double reg_L2);
 
         virtual ~TrainNode() {}
 
@@ -35,20 +33,18 @@ namespace lncc {
         bool FindSplit();
 
     private:
-        MsgQueue<BaseTask*>* task_queue_;
+        const LnContext* ln_ctx_;
         int* sample_index_;
         int sample_num_;
         const DataSet* data_set_;
         // the total ngrads, not only samples
         const double* ngrads_;
-        double learning_rate_;
         double sum_ngrads_;
         double sum_weights_;
 
         double max_split_gain_;
         double reg_L1_;
         double reg_L2_;
-        double lambda_;
     };
 }
 #endif

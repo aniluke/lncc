@@ -14,7 +14,7 @@
 using namespace std;
 using namespace lncc;
 
-Learner* CreateLearner(const LnConfig& config, LnContext* ln_ctx) {
+Learner* CreateLearner(const LnConfig& config, int thread, LnContext* ln_ctx) {
 
     ln_ctx->train_fv = config.GetString("train_fv", "");
     ln_ctx->model_folder = config.GetString("model_folder", "");
@@ -31,7 +31,8 @@ Learner* CreateLearner(const LnConfig& config, LnContext* ln_ctx) {
     ln_ctx->reg_L1 = config.GetDouble("reg_L1", 0.0);
     ln_ctx->reg_L2 = config.GetDouble("reg_L2", 0.0);
     ln_ctx->lambda = config.GetDouble("lambda", 1.0);
-    
+    ln_ctx->thread = thread;
+
     log_info("Learning context:\n");
     log_info("train_fv = %s\n", ln_ctx->train_fv.c_str());
     log_info("model_folder = %s\n", ln_ctx->model_folder.c_str());
@@ -53,7 +54,7 @@ Predictor* CreatePredictor(const LnConfig& config, LnContext* ln_ctx) {
     ln_ctx->test_fv = config.GetString("test_fv", "");
     ln_ctx->model_folder = config.GetString("model_folder", "");
     ln_ctx->exclude_features = config.GetString("exclude_features", "");
-
+    ln_ctx->test_steps = config.GetInt("test_steps", 0);
     return new BoostingPredictor(ln_ctx);
 }
 
@@ -139,7 +140,7 @@ int main(int argc, char** argv) {
     if (do_training) {
         log_info("Start training\n");
         double t1 = lncc::get_time_precise();
-        Learner* learner = CreateLearner(ln_config, &ln_ctx);
+        Learner* learner = CreateLearner(ln_config, thread_num, &ln_ctx);
         learner->Train();
         string mkdir_cmd = "mkdir ";
         mkdir_cmd += ln_ctx.model_folder;

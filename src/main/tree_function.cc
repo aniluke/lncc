@@ -8,12 +8,8 @@ using namespace lncc;
 using namespace tinyxml2;
 
 lncc::TreeFunction::TreeFunction(const LnContext* ln_ctx):
-    task_queue_(ln_ctx->task_queue),
-    max_node_(ln_ctx->node_num),
-    root_(NULL),
-    reg_L1_(ln_ctx->reg_L1),
-    reg_L2_(ln_ctx->reg_L2),
-    lambda_(ln_ctx->lambda){
+    ln_ctx_(ln_ctx),
+    root_(NULL) {
 }
 
 static double ComputeTotalWeight(const vector<int>& sample_index, const DataSet& data_set) {
@@ -30,12 +26,12 @@ int lncc::TreeFunction::Fit(const vector<int>& sample_index, const DataSet& data
     memcpy ((char*)sample_index_buf, (char*)sample_index.data(), sizeof(int)*sample_index.size());
 
     double total_weight = ComputeTotalWeight(sample_index, data_set);
-    double weighted_reg_L1 = reg_L1_ * total_weight;
-    double weighted_reg_L2 = reg_L2_ * total_weight;
-    root_ = new TrainNode(task_queue_, sample_index_buf, sample_index.size(), &data_set, ngrads.data(), learning_rate, weighted_reg_L1, weighted_reg_L2, lambda_);
+    double weighted_reg_L1 = ln_ctx_->reg_L1 * total_weight;
+    double weighted_reg_L2 = ln_ctx_->reg_L2 * total_weight;
+    root_ = new TrainNode(ln_ctx_, sample_index_buf, sample_index.size(), &data_set, ngrads.data(), weighted_reg_L1, weighted_reg_L2);
     queue.push_back((TrainNode*)root_);
 
-    while (queue.size() < max_node_) {
+    while (queue.size() < ln_ctx_->node_num) {
         // find best node that having best splitting gain
         list<TrainNode*>::iterator best_node_it = FindBestNode(queue);
         if (best_node_it == queue.end()) {

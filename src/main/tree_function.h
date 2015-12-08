@@ -28,12 +28,8 @@ namespace lncc {
     private:
         std::list<TrainNode*>::iterator FindBestNode(std::list<TrainNode*>& queue);
     private:
-        MsgQueue<BaseTask*>* task_queue_;
-        int max_node_;
+        const LnContext* ln_ctx_;
         PredNode* root_;
-        double reg_L1_;
-        double reg_L2_;
-        double lambda_;
     };
 
 }

@@ -114,7 +114,7 @@ static bool FeatureImpComp(const pair<int, double>& left, const pair<int, double
 int lncc::GradientBoostingLearner::PrintFeatureStats() {
     // save feature stats
     string fea_imp_path = ln_ctx_->model_folder + '/';
-    fea_imp_path += "feature.imp";
+    fea_imp_path += "feature.rank";
     log_info("Dump feature importance to %s\n", fea_imp_path.c_str());
 
     vector<double> feature_stats(data_set_.fmat_.size(), 0.0);

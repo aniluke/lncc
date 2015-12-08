@@ -26,8 +26,10 @@ namespace lncc {
         double reg_L1;
         double reg_L2;
         double lambda;
+        int thread;
         // testing
         std::string test_fv;
+        int test_steps;
     };
 }
 

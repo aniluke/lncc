@@ -60,17 +60,31 @@ int lncc::BoostingPredictor::LoadModel() {
 
 int lncc::BoostingPredictor::Predict() {
     data_set_.LoadTestingData(ln_ctx_);
+    if (ln_ctx_->test_steps <= 0) {
+        PredictIterations(base_funcs_.size());
+    } else {
+        for (int i = ln_ctx_->test_steps; i <= base_funcs_.size(); i += ln_ctx_->test_steps) {
+            PredictIterations(i);
+        }
+    }
+    return 0;
+}
+
+int lncc::BoostingPredictor::PredictIterations(int max_iters) {    
     string score_filename = ln_ctx_->model_folder + "/";
-    score_filename += "model.score";
+    score_filename += "model.";
+    score_filename += lncc::to_string(max_iters);
+    score_filename += ".score";
+    
     FILE* fp = fopen(score_filename.c_str(), "w");
     for (int i = 0; i < data_set_.GetRowNum(); i ++) {
         double score = 0.0;
-        for (int t = 0; t < base_funcs_.size(); t ++) {
+        for (int t = 0; t < base_funcs_.size() && t < max_iters; t ++) {
             score += base_funcs_[t]->Predict(data_set_, i);
         }
         fprintf (fp, "%lf\n", score);
     }
     fclose(fp);
-
+    log_info("dump score %s\n", score_filename.c_str());
     return 0;
 }
